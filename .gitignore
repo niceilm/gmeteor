@@ -1,0 +1,20 @@
+### Meteor template
+.meteor/local
+
+### dependency
+bower_components/
+node_modules/
+
+### generate
+backend/client/
+backend/public/
+backend/npm-container/
+backend/mobile-config.js
+frontend/public/download
+deploy/build/
+
+### intellij
+.idea/
+
+### test
+.screenshots
