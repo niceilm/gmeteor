@@ -42,7 +42,6 @@ function processPublic() {
 }
 
 function processClient() {
-  console.log(nconf.get("gulp:client:all"));
   return gulp.src(nconf.get("gulp:client:all"))
     .pipe(gulp.dest(nconf.get("gulp:client:target")));
 }
