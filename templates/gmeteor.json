@@ -1,0 +1,55 @@
+{
+  "production": {
+    "name": "someapp-template",
+    "rootUrl": "https://someapp-template.com",
+    "deployPath": "deploy/production",
+    "settings": "deploy/production/settings.json"
+  },
+  "development": {
+    "name": "someapp-template-local",
+    "rootUrl": "http://localhost",
+    "port": 3000,
+    "deployPath": "deploy/development",
+    "settings": "deploy/development/settings.json"
+  },
+  "gulp": {
+    "public": {
+      "all": [
+        "frontend/public/**",
+        "frontend/bower_components/fullcalendar/dist/fullcalendar.css",
+        "frontend/bower_components/angular-carousel/dist/angular-carousel.css",
+        "frontend/bower_components/angular-ui-grid/ui-grid.*",
+        "!**/*.js"
+      ],
+      "js": [
+        "frontend/public/**/*.js"
+      ],
+      "js-lib": [
+        "frontend/bower_components/angular-carousel/dist/angular-carousel.js",
+        "frontend/bower_components/angular-ui-calendar/src/calendar.js",
+        "frontend/bower_components/fullcalendar/dist/fullcalendar.js",
+        "frontend/bower_components/angular-ui-grid/ui-grid.js"
+      ],
+      "target": "backend/public"
+    },
+    "client": {
+      "all": [
+        "frontend/client/**",
+        "frontend/bower_components/angular-aria/angular-aria.js",
+        "frontend/bower_components/angular-touch/angular-touch.js",
+        "frontend/bower_components/angular-animate/angular-animate.js",
+        "frontend/bower_components/angular-material/angular-material.css",
+        "frontend/bower_components/angular-material/angular-material.js",
+        "frontend/bower_components/angular-ui-router/release/angular-ui-router.js",
+        "frontend/bower_components/LazyHelper/LazyHelper.js",
+        "frontend/bower_components/oclazyload/dist/ocLazyLoad.js"
+      ],
+      "target": "backend/client"
+    }
+  },
+  "mobile": {
+    "buildPath": "deploy/build",
+    "keystore": "deploy/production/.keystore",
+    "apkPath": "frontend/public/download/production.apk"
+  }
+}

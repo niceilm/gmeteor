@@ -1,0 +1,234 @@
+#!/usr/bin/env node
+
+var path = require('path');
+var fs = require('fs');
+var program = require('commander');
+var chalk = require('chalk');
+var pkg = require('../package.json');
+var shelljs = require('shelljs');
+var readlineSync = require('readline-sync');
+var _ = require('underscore');
+var nconf = require('nconf');
+
+var version = pkg.version;
+var executeDirPath = path.resolve('.');
+var gulpfilePath = path.normalize(__dirname + "/../gulpfile.js");
+var gmeteorJsonPath = path.normalize(executeDirPath + '/gmeteor.json');
+var _exit = process.exit;
+
+var error = chalk.bold.red;
+var warn = chalk.bold.yellow;
+var log = chalk.bold.green;
+
+// Re-assign process.exit because of commander
+// TODO: Switch to a different command framework
+process.exit = exit;
+
+if(!fs.existsSync(gmeteorJsonPath)) {
+  console.log(error("need gmeteor.json file"));
+  exit(1);
+  return;
+}
+
+nconf.argv().env().file({file: gmeteorJsonPath}).defaults({
+  "mup": {"path": "deploy/production"},
+  "meteor": {"path": "backend"},
+  "frontend": {"path": "frontend"},
+  "env": process.env.NODE_ENV
+});
+
+program
+  .version(version)
+  .usage('[options] [dir]')
+  .option('-s, --source', 'gmeteor option file (defaults to gmeteor.json)')
+  .option('-f, --force', 'force on non-empty directory')
+
+program
+  .command('run [target]')
+  .description('run meteor project')
+  .action(actionRun);
+
+program
+  .command('build [action]')
+  .description('build')
+  .action(actionBuild);
+
+program
+  .command('deploy')
+  .description('deploy meteor project')
+  .action(actionDeploy);
+
+program
+  .command('gulp [task]')
+  .description('gulp wrapper')
+  .action(actionGulp);
+
+program
+  .command('mup')
+  .description('mup wrapper')
+  .action(actionMup);
+
+program
+  .command('meteor')
+  .description('meteor wrapper')
+  .action(actionMeteor);
+
+program
+  .command('install')
+  .description('install')
+  .action(actionInstall);
+
+program
+  .command('*')
+  .description('not match')
+  .action(function() {
+    //console.log(process.argv.slice(2));
+  });
+
+program.parse(process.argv);
+
+function processMeteorBuild() {
+  var options = {
+    buildPath: getAbsolutePath(nconf.get("mobile:buildPath")),
+    server: nconf.get("production:rootUrl"),
+    settings: getAbsolutePath(nconf.get("production:settings"))
+  };
+  shelljs.cd(getAbsolutePath(nconf.get("meteor:path")));
+  console.log(log("start meteor build"));
+  shelljs.exec(_.template("meteor build <%=buildPath%> --server <%=server%> --mobile-settings <%=settings%>")(options));
+  console.log(log("end meteor build"));
+}
+
+function processJasrsigner() {
+  var options = {
+    "appname": nconf.get("production:name"),
+    "keystore": getAbsolutePath(nconf.get("mobile:keystore")),
+    "storepass": nconf.get("mobile:storepass") || readlineSync.question('type storepass : ', {hideEchoBack: true})
+  };
+  shelljs.cd(getAbsolutePath(nconf.get("mobile:buildPath") + "/android"));
+  console.log(log("start jarsigner"));
+  shelljs.exec(_.template("jarsigner -keystore <%=keystore %> -verbose -sigalg SHA1withRSA -digestalg SHA1 -storepass <%=storepass%> unaligned.apk <%=appname %>")(options));
+  console.log(log("end jarsigner"));
+}
+
+function processZipalign() {
+  var options = {
+    apkPath: getAbsolutePath(nconf.get("mobile:apkPath"))
+  };
+  var execStr = _.template("~/.meteor/android_bundle/android-sdk/build-tools/20.0.0/zipalign -f 4 unaligned.apk <%=apkPath%>")(options);
+  shelljs.cd(getAbsolutePath(nconf.get("mobile:buildPath") + "/android"));
+  console.log(log("start zipalign"));
+  shelljs.exec(execStr);
+  console.log(log("end zipalign"));
+}
+
+function processMeteorRun(target) {
+  var option = {
+    target: target || "",
+    server: nconf.get("development:rootUrl") || "http://localhost",
+    port: nconf.get("development:port"),
+    settings: getAbsolutePath(nconf.get("development:settings"))
+  };
+  var execStr = _.template('meteor run <%=target %> -p <%=port%> --mobile-server=<%=server%> --settings <%=settings %>')(option);
+
+  console.log(log("start meteor run"));
+  shelljs.cd(getAbsolutePath(nconf.get("meteor:path")));
+  shelljs.exec(execStr);
+  console.log(log("end meteor run"));
+}
+
+function processByCommand(exec, command) {
+  var execStr = exec + " " + command + " " + process.argv.slice(4).join(" ");
+  console.log(log("start : " + execStr));
+  shelljs.cd(getAbsolutePath(nconf.get(exec + ":path")));
+  shelljs.exec(execStr);
+  console.log(log("end : " + execStr));
+}
+
+function processPreprocess(phase) {
+  shelljs.cp("-f", getAbsolutePath("deploy/" + phase + "/mobile-config.js"), getAbsolutePath(nconf.get("meteor:path")));
+}
+
+function getAbsolutePath(sourcePath) {
+  if(sourcePath && sourcePath.indexOf("/") !== 0) {
+    sourcePath = path.normalize(executeDirPath + "/" + sourcePath);
+  }
+  return sourcePath;
+}
+
+/**
+ * Graceful exit for async STDIO
+ */
+
+function exit(code) {
+  // flush output for Node.js Windows pipe bug
+  // https://github.com/joyent/node/issues/6247 is just one bug example
+  // https://github.com/visionmedia/mocha/issues/333 has a good discussion
+  function done() {
+    if(!(draining--)) _exit(code);
+  }
+
+  var draining = 0;
+  var streams = [process.stdout, process.stderr];
+
+  exit.exited = true;
+
+  streams.forEach(function(stream) {
+    // submit empty write request and wait for completion
+    draining += 1;
+    stream.write('', done);
+  });
+
+  done();
+}
+
+function actionRun(target) {
+  console.log(log("start run"));
+  processPreprocess('development');
+  processMeteorRun(target);
+  console.log(log("end run"));
+}
+
+function actionBuild(action) {
+  console.log(log("start build"));
+  processPreprocess('production');
+  actionGulp('gulp:production');
+  processMeteorBuild();
+  if(action === 'android') {
+    processJasrsigner();
+    processZipalign();
+  }
+  console.log(log("end build"));
+}
+
+function actionDeploy() {
+  console.log(log("start deploy"));
+  processPreprocess('production');
+  actionGulp('gulp:production');
+  processByCommand("mup", "deploy");
+  console.log(log("end deploy"));
+}
+
+function actionMup(command) {
+  console.log(log("start mup"));
+  processByCommand("mup", command);
+  console.log(log("end mup"));
+}
+
+function actionMeteor(command) {
+  console.log(log("start meteor"));
+  processByCommand("meteor", command);
+  console.log(log("end meteor"));
+}
+
+function actionGulp(task) {
+  var execStr = "gulp --gulpfile " + gulpfilePath + " --cwd " + executeDirPath + " " + task + " " + process.argv.slice(4).join(" ");
+  console.log(log("start gulp"));
+  shelljs.exec(execStr);
+  console.log(log("end gulp"));
+}
+
+function actionInstall() {
+  shelljs.cd(getAbsolutePath(nconf.get("frontend:path")));
+  shelljs.exec("bower install");
+}

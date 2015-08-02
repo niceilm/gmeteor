@@ -1,44 +1,42 @@
-gulp.json
+gmeteor
 ============
+helper [meteor](https://www.meteor.com/), [mup](https://github.com/arunoda/meteor-up) and [gulp](http://gulpjs.com/)
 
-# local development
-## preinstall
-* nodejs
-
-## install
+# install
 ```
-npm install -g mup
-npm install -g bower
-npm install -g gulp
-curl https://install.meteor.com/ | sh
-npm install && bower install
+npm install -g gmeteor
 ```
 
-## backend
+# command
+## run
 ```
-gulp run
-```
-
-## frontend
-```
-gulp
+gmeteor run
+gmeteor run android
+gmeteor run ios
 ```
 
-# server
-## server setting
+## build
 ```
-gulp mup:setup
-```
-
-## server deploy
-```
-gulp deploy
+gmeteor build android
+gmeteor build ios
 ```
 
-# app build
+## deploy
 ```
-gulp build:android
+gmeteor deploy
 ```
 
-# TODO
-* 일반 예제 추가
+## gulp wrapper
+```
+gmeteor gulp [tasks...]
+```
+
+## meteor wrapper
+```
+gmeteor meteor [command]
+```
+
+## mup wrapper
+```
+gmeteor mup [command]
+```

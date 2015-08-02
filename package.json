@@ -1,20 +1,45 @@
 {
-  "name": "sampleapp",
+  "name": "gmeteor",
+  "description": "meteor, mup and gulp",
   "version": "0.0.1",
-  "private": true,
-  "dependencies": {},
-  "devDependencies": {
-    "del": "1.2.0",
-    "gulp": "3.9.0",
-    "gulp-if": "1.2.5",
-    "gulp-iife": "0.0.7",
-    "gulp-ng-annotate": "1.0.0",
-    "gulp-sequence": "0.4.0",
-    "gulp-uglify": "1.2.0",
-    "nconf": "0.7.1",
-    "q": "1.4.1",
-    "readline-sync": "1.2.19",
-    "shelljs": "0.5.1",
-    "underscore": "1.8.3"
-  }
+  "author": "flynn <niceilm@naver.com>",
+  "keywords": [
+    "meteor",
+    "gulp",
+    "mup"
+  ],
+  "repository": "niceilm/gmeteor",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^1.1.0",
+    "commander": "^2.8.1",
+    "del": "^1.2.0",
+    "gulp": "^3.9.0",
+    "gulp-changed": "^1.2.1",
+    "gulp-if": "^1.2.5",
+    "gulp-iife": "^0.0.7",
+    "gulp-ng-annotate": "^1.1.0",
+    "gulp-sequence": "^0.4.0",
+    "gulp-uglify": "^1.2.0",
+    "nconf": "^0.7.1",
+    "readline-sync": "^1.2.19",
+    "shelljs": "^0.5.1",
+    "underscore": "^1.8.3"
+  },
+  "main": "bin/gmeteor",
+  "preferGlobal": true,
+  "bin": {
+    "gmeteor": "./bin/gmeteor"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">= 0.10"
+  },
+  "files": [
+    "LICENSE",
+    "bin/",
+    "templates/",
+    "gulpfile.js"
+  ],
+  "scripts": {}
 }
