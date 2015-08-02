@@ -12,7 +12,8 @@ var nconf = require('nconf');
 
 var version = pkg.version;
 var executeDirPath = path.resolve('.');
-var gulpfilePath = path.normalize(__dirname + "/../gulpfile.js");
+var gulpfilePath = path.normalize(__dirname + "/../gulp/gulpfile.js");
+console.log(gulpfilePath);
 var gmeteorJsonPath = path.normalize(executeDirPath + '/gmeteor.json');
 var _exit = process.exit;
 
