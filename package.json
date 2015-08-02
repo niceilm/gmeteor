@@ -1,7 +1,7 @@
 {
   "name": "gmeteor",
   "description": "meteor, mup and gulp",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "author": "flynn <niceilm@naver.com>",
   "keywords": [
     "meteor",
@@ -38,8 +38,8 @@
   "files": [
     "LICENSE",
     "bin/",
-    "templates/",
-    "gulpfile.js"
+    "gulp/",
+    "templates/"
   ],
   "scripts": {}
 }

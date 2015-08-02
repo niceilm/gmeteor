@@ -13,7 +13,6 @@ var nconf = require('nconf');
 var version = pkg.version;
 var executeDirPath = path.resolve('.');
 var gulpfilePath = path.normalize(__dirname + "/../gulp/gulpfile.js");
-console.log(gulpfilePath);
 var gmeteorJsonPath = path.normalize(executeDirPath + '/gmeteor.json');
 var _exit = process.exit;
 
@@ -223,7 +222,7 @@ function actionMeteor(command) {
 }
 
 function actionGulp(task) {
-  var execStr = "gulp --gulpfile " + gulpfilePath + " --cwd " + executeDirPath + " " + task + " " + process.argv.slice(4).join(" ");
+  var execStr = "gulp --gulpfile " + gulpfilePath + " --cwd " + executeDirPath + " " + (task || "") + " " + process.argv.slice(4).join(" ");
   console.log(log("start gulp"));
   shelljs.exec(execStr);
   console.log(log("end gulp"));
