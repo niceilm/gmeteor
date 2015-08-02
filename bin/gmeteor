@@ -4,18 +4,36 @@ var path = require('path');
 var fs = require('fs');
 var program = require('commander');
 var chalk = require('chalk');
-var pkg = require('../package.json');
+var prettyTime = require('pretty-hrtime');
 var shelljs = require('shelljs');
 var readlineSync = require('readline-sync');
 var _ = require('underscore');
 var nconf = require('nconf');
+var moment = require('moment');
+var pkg = require('../package.json');
 
 var version = pkg.version;
 var executeDirPath = path.resolve('.');
 var gulpfilePath = path.normalize(__dirname + "/../gulp/gulpfile.js");
 var gmeteorJsonPath = path.normalize(executeDirPath + '/gmeteor.json');
 var _exit = process.exit;
-
+var NTimer = {
+  actionTime: {},
+  start: function(action) {
+    var currentTime = new Date();
+    this.actionTime[action] = process.hrtime();
+    console.log(log("[%s] Starting '%s'..."), moment(currentTime).format("HH:mm:ss"), action);
+  },
+  end: function(action) {
+    if(!this.actionTime[action]) {
+      return;
+    }
+    var currentTime = new Date();
+    var timeDiff = process.hrtime(this.actionTime[action]);
+    this.actionTime[action] = null;
+    console.log(log("[%s] Finished '%s' after %s"), moment(currentTime).format("HH:mm:ss"), action, prettyTime(timeDiff));
+  }
+};
 var error = chalk.bold.red;
 var warn = chalk.bold.yellow;
 var log = chalk.bold.green;
@@ -78,51 +96,52 @@ program
   .description('install')
   .action(actionInstall);
 
-program
-  .command('*')
-  .description('not match')
-  .action(function() {
-    //console.log(process.argv.slice(2));
-  });
-
 program.parse(process.argv);
 
 function processMeteorBuild() {
+  NTimer.start("gmeteor build");
+
   var options = {
     buildPath: getAbsolutePath(nconf.get("mobile:buildPath")),
     server: nconf.get("production:rootUrl"),
     settings: getAbsolutePath(nconf.get("production:settings"))
   };
   shelljs.cd(getAbsolutePath(nconf.get("meteor:path")));
-  console.log(log("start meteor build"));
   shelljs.exec(_.template("meteor build <%=buildPath%> --server <%=server%> --mobile-settings <%=settings%>")(options));
-  console.log(log("end meteor build"));
+
+  NTimer.end("gmeteor build");
 }
 
 function processJasrsigner() {
+  NTimer.start("jarsigner");
+
   var options = {
     "appname": nconf.get("production:name"),
     "keystore": getAbsolutePath(nconf.get("mobile:keystore")),
     "storepass": nconf.get("mobile:storepass") || readlineSync.question('type storepass : ', {hideEchoBack: true})
   };
   shelljs.cd(getAbsolutePath(nconf.get("mobile:buildPath") + "/android"));
-  console.log(log("start jarsigner"));
   shelljs.exec(_.template("jarsigner -keystore <%=keystore %> -verbose -sigalg SHA1withRSA -digestalg SHA1 -storepass <%=storepass%> unaligned.apk <%=appname %>")(options));
-  console.log(log("end jarsigner"));
+
+  NTimer.end("jarsigner");
 }
 
 function processZipalign() {
+  NTimer.start("zipalign");
+
   var options = {
     apkPath: getAbsolutePath(nconf.get("mobile:apkPath"))
   };
   var execStr = _.template("~/.meteor/android_bundle/android-sdk/build-tools/20.0.0/zipalign -f 4 unaligned.apk <%=apkPath%>")(options);
   shelljs.cd(getAbsolutePath(nconf.get("mobile:buildPath") + "/android"));
-  console.log(log("start zipalign"));
   shelljs.exec(execStr);
-  console.log(log("end zipalign"));
+
+  NTimer.end("zipalign");
 }
 
 function processMeteorRun(target) {
+  NTimer.start("meteor run");
+
   var option = {
     target: target || "",
     server: nconf.get("development:rootUrl") || "http://localhost",
@@ -131,18 +150,18 @@ function processMeteorRun(target) {
   };
   var execStr = _.template('meteor run <%=target %> -p <%=port%> --mobile-server=<%=server%> --settings <%=settings %>')(option);
 
-  console.log(log("start meteor run"));
   shelljs.cd(getAbsolutePath(nconf.get("meteor:path")));
   shelljs.exec(execStr);
-  console.log(log("end meteor run"));
+
+  NTimer.end("meteor run");
 }
 
 function processByCommand(exec, command) {
   var execStr = exec + " " + command + " " + process.argv.slice(4).join(" ");
-  console.log(log("start : " + execStr));
+  NTimer.start(execStr);
   shelljs.cd(getAbsolutePath(nconf.get(exec + ":path")));
   shelljs.exec(execStr);
-  console.log(log("end : " + execStr));
+  NTimer.end(execStr);
 }
 
 function processPreprocess(phase) {
@@ -183,14 +202,14 @@ function exit(code) {
 }
 
 function actionRun(target) {
-  console.log(log("start run"));
+  NTimer.start("gmeteor run");
   processPreprocess('development');
   processMeteorRun(target);
-  console.log(log("end run"));
+  NTimer.end("gmeteor run");
 }
 
 function actionBuild(action) {
-  console.log(log("start build"));
+  NTimer.start("gmeteor build");
   processPreprocess('production');
   actionGulp('gulp:production');
   processMeteorBuild();
@@ -198,37 +217,42 @@ function actionBuild(action) {
     processJasrsigner();
     processZipalign();
   }
-  console.log(log("end build"));
+  NTimer.end("gmeteor build");
 }
 
 function actionDeploy() {
-  console.log(log("start deploy"));
+  NTimer.start("gmeteor deploy");
   processPreprocess('production');
   actionGulp('gulp:production');
   processByCommand("mup", "deploy");
-  console.log(log("end deploy"));
+  NTimer.end("gmeteor deploy");
 }
 
 function actionMup(command) {
-  console.log(log("start mup"));
+  NTimer.start("mup");
   processByCommand("mup", command);
-  console.log(log("end mup"));
+  NTimer.end("mup");
 }
 
 function actionMeteor(command) {
-  console.log(log("start meteor"));
+  NTimer.start("meteor");
   processByCommand("meteor", command);
-  console.log(log("end meteor"));
+  NTimer.end("meteor");
 }
 
 function actionGulp(task) {
   var execStr = "gulp --gulpfile " + gulpfilePath + " --cwd " + executeDirPath + " " + (task || "") + " " + process.argv.slice(4).join(" ");
-  console.log(log("start gulp"));
+  NTimer.start("gulp");
   shelljs.exec(execStr);
-  console.log(log("end gulp"));
+  NTimer.end("gulp");
 }
 
 function actionInstall() {
+  NTimer.start("gmeteor install");
+
   shelljs.cd(getAbsolutePath(nconf.get("frontend:path")));
   shelljs.exec("bower install");
+
+  NTimer.end("gmeteor install");
 }
+

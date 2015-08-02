@@ -1,7 +1,7 @@
 {
   "name": "gmeteor",
   "description": "meteor, mup and gulp",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "author": "flynn <niceilm@naver.com>",
   "keywords": [
     "meteor",
@@ -21,7 +21,9 @@
     "gulp-ng-annotate": "^1.1.0",
     "gulp-sequence": "^0.4.0",
     "gulp-uglify": "^1.2.0",
+    "moment": "^2.10.6",
     "nconf": "^0.7.1",
+    "pretty-hrtime": "^1.0.0",
     "readline-sync": "^1.2.19",
     "shelljs": "^0.5.1",
     "underscore": "^1.8.3"
