@@ -65,7 +65,7 @@ function processWatch() {
   gulp.watch(nconf.get("gulp:public:all"), ['gulp:public', 'gulp:js']);
   gulp.watch(nconf.get("gulp:client:all"), ['gulp:client']);
   gulp.watch(nconf.get("gulp:public:js"), ['gulp:js']);
-  gulp.watch(nconf.get("gulp:public:js-lib"), ['gulp:s-lib']);
+  gulp.watch(nconf.get("gulp:public:js-lib"), ['gulp:js-lib']);
 }
 
 function processDefault() {
