@@ -96,6 +96,12 @@ program
   .description('install')
   .action(actionInstall);
 
+program
+  .command('*')
+  .action(function() {
+    console.log(error('not found command'));
+  });
+
 program.parse(process.argv);
 
 function processMeteorBuild() {
