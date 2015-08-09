@@ -52,7 +52,8 @@ nconf.argv().env().file({file: gmeteorJsonPath}).defaults({
   "mup": {"path": "deploy/production"},
   "meteor": {"path": "backend"},
   "frontend": {"path": "frontend"},
-  "env": process.env.NODE_ENV
+  "env": process.env.NODE_ENV,
+  "test": false
 });
 
 program
@@ -64,6 +65,7 @@ program
 program
   .command('run [target]')
   .description('run meteor project')
+  .option("--test", "test enabled")
   .action(actionRun);
 
 program
@@ -154,7 +156,7 @@ function processMeteorRun(target) {
     port: nconf.get("development:port"),
     settings: getAbsolutePath(nconf.get("development:settings"))
   };
-  var testEnviroments = [
+  var disabledTest = [
     "JASMINE_SERVER_UNIT=0",
     "JASMINE_SERVER_INTEGRATION=0",
     "JASMINE_CLIENT_UNIT=0",
@@ -162,7 +164,7 @@ function processMeteorRun(target) {
   ].join(" ");
   var execStr = _.template('meteor run <%=target %> -p <%=port%> --mobile-server=<%=server%> --settings <%=settings %>')(option);
   shelljs.cd(getAbsolutePath(nconf.get("meteor:path")));
-  shelljs.exec((nconf.get("test") ? testEnviroments + " " : "") + execStr);
+  shelljs.exec((nconf.get("test") ? "" : disabledTest + " ") + execStr);
 
   NTimer.end("meteor run");
 }
