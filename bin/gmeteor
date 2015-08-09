@@ -154,10 +154,15 @@ function processMeteorRun(target) {
     port: nconf.get("development:port"),
     settings: getAbsolutePath(nconf.get("development:settings"))
   };
+  var testEnviroments = [
+    "JASMINE_SERVER_UNIT=0",
+    "JASMINE_SERVER_INTEGRATION=0",
+    "JASMINE_CLIENT_UNIT=0",
+    "JASMINE_CLIENT_INTEGRATION=0"
+  ].join(" ");
   var execStr = _.template('meteor run <%=target %> -p <%=port%> --mobile-server=<%=server%> --settings <%=settings %>')(option);
-
   shelljs.cd(getAbsolutePath(nconf.get("meteor:path")));
-  shelljs.exec(execStr);
+  shelljs.exec((nconf.get("test") ? testEnviroments + " " : "") + execStr);
 
   NTimer.end("meteor run");
 }
