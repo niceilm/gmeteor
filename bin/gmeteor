@@ -66,7 +66,13 @@ program
   .command('run [target]')
   .description('run meteor project')
   .option("--test", "test enabled")
-  .action(actionRun);
+  .action(_.partial(actionRun, 'run'));
+
+program
+  .command('debug [target]')
+  .description('debug meteor project')
+  .option("--test", "test enabled")
+  .action(_.partial(actionRun, 'debug'));
 
 program
   .command('build [action]')
@@ -147,10 +153,12 @@ function processZipalign() {
   NTimer.end("zipalign");
 }
 
-function processMeteorRun(target) {
-  NTimer.start("meteor run");
+function processMeteorRun(action, target) {
+  action = action || "run";
+  NTimer.start("meteor " + action);
 
   var option = {
+    action: action || "run",
     target: target || "",
     server: nconf.get("development:rootUrl") || "http://localhost",
     port: nconf.get("development:port"),
@@ -162,11 +170,11 @@ function processMeteorRun(target) {
     "JASMINE_CLIENT_UNIT=0",
     "JASMINE_CLIENT_INTEGRATION=0"
   ].join(" ");
-  var execStr = _.template('meteor run <%=target %> -p <%=port%> --mobile-server=<%=server%> --settings <%=settings %>')(option);
+  var execStr = _.template('meteor <%=action%> <%=target %> -p <%=port%> --mobile-server=<%=server%> --settings <%=settings %>')(option);
   shelljs.cd(getAbsolutePath(nconf.get("meteor:path")));
   shelljs.exec((nconf.get("test") ? "" : disabledTest + " ") + execStr);
 
-  NTimer.end("meteor run");
+  NTimer.end("meteor " + action);
 }
 
 function processByCommand(exec, command) {
@@ -214,11 +222,11 @@ function exit(code) {
   done();
 }
 
-function actionRun(target) {
-  NTimer.start("gmeteor run");
+function actionRun(command, target) {
+  NTimer.start("gmeteor " + command);
   processPreprocess('development');
-  processMeteorRun(target);
-  NTimer.end("gmeteor run");
+  processMeteorRun(command, target);
+  NTimer.end("gmeteor " + command);
 }
 
 function actionBuild(action) {

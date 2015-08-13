@@ -15,6 +15,13 @@ gmeteor run android
 gmeteor run ios
 ```
 
+## debug
+```
+gmeteor debug
+gmeteor debug android
+gmeteor debug ios
+```
+
 ## build
 ```
 gmeteor build android
@@ -40,3 +47,13 @@ gmeteor meteor [command]
 ```
 gmeteor mup [command]
 ```
+
+# TODO
+* debug 추가
+* 모드 : 개발모드 / 프로덕션
+* 페이즈 : alpha / beta /real
+* 미설치된 명령어 설치하기
+ * npm install -g mup
+ * npm install -g gulp
+ * npm install -g bower
+* gmeteor meteor mongo 동작하도록 하기
