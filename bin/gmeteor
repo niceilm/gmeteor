@@ -170,7 +170,7 @@ function processMeteorRun(action, target) {
     "JASMINE_CLIENT_UNIT=0",
     "JASMINE_CLIENT_INTEGRATION=0"
   ].join(" ");
-  var execStr = _.template('meteor <%=action%> <%=target %> -p <%=port%> --mobile-server=<%=server%> --settings <%=settings %>')(option);
+  var execStr = _.template('ROOT_URL=<%=server%> PORT=<%=port%> meteor <%=action%> <%=target %> -p <%=port%> --mobile-server=<%=server%> --settings <%=settings %>')(option);
   shelljs.cd(getAbsolutePath(nconf.get("meteor:path")));
   shelljs.exec((nconf.get("test") ? "" : disabledTest + " ") + execStr);
 

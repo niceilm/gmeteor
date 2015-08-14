@@ -52,6 +52,7 @@ gmeteor mup [command]
 * debug 추가
 * 모드 : 개발모드 / 프로덕션
 * 페이즈 : alpha / beta /real
+* environment 추가 하기
 * 미설치된 명령어 설치하기
  * npm install -g mup
  * npm install -g gulp
