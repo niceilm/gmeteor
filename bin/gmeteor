@@ -66,12 +66,14 @@ program
   .command('run [target]')
   .description('run meteor project')
   .option("--test", "test enabled")
+  .option("--production", "production enabled")
   .action(_.partial(actionRun, 'run'));
 
 program
   .command('debug [target]')
   .description('debug meteor project')
   .option("--test", "test enabled")
+  .option("--production", "production enabled")
   .action(_.partial(actionRun, 'debug'));
 
 program
@@ -164,13 +166,14 @@ function processMeteorRun(action, target) {
     port: nconf.get("development:port"),
     settings: getAbsolutePath(nconf.get("development:settings"))
   };
+  option.production = nconf.get("production") ? "--production" : "";
   var disabledTest = [
     "JASMINE_SERVER_UNIT=0",
     "JASMINE_SERVER_INTEGRATION=0",
     "JASMINE_CLIENT_UNIT=0",
     "JASMINE_CLIENT_INTEGRATION=0"
   ].join(" ");
-  var execStr = _.template('ROOT_URL=<%=server%> PORT=<%=port%> meteor <%=action%> <%=target %> -p <%=port%> --mobile-server=<%=server%> --settings <%=settings %>')(option);
+  var execStr = _.template('ROOT_URL=<%=server%> PORT=<%=port%> meteor <%=action%> <%=target %> -p <%=port%> --mobile-server=<%=server%> --settings <%=settings %> <%=production%>')(option);
   shelljs.cd(getAbsolutePath(nconf.get("meteor:path")));
   shelljs.exec((nconf.get("test") ? "" : disabledTest + " ") + execStr);
 
