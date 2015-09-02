@@ -226,7 +226,6 @@ function exit(code) {
 }
 
 function actionRun(command, target, options) {
-  console.log(arguments);
   NTimer.start("gmeteor " + command);
   processPreprocess('development');
   processMeteorRun(command, target, options);
