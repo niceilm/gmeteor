@@ -1,0 +1,50 @@
+{
+  "info": {
+    "name": "meteor-app",
+    "path": {
+      "deploy": "deploy",
+      "frontend": "frontend",
+      "backend": "backend"
+    },
+    "development": "local",
+    "production": "real"
+  },
+  "gulp": {
+    "public": {
+      "all": [
+        "frontend/public/**",
+        "!**/*.js"
+      ],
+      "js": [
+        "frontend/public/**/*.js"
+      ],
+      "js-lib": [
+      ],
+      "target": "backend/public"
+    },
+    "client": {
+      "all": [
+        "frontend/client/**"
+      ],
+      "target": "backend/client"
+    }
+  },
+  "exec": {
+    "zipalign": ""
+  },
+  "phase": {
+    "local": {
+      "url": "http://localhost",
+      "port": 3000,
+      "environment": "development",
+      "test": true,
+      "outputPath": "deploy/local/.build"
+    },
+    "real": {
+      "url": "http://somedomain.com",
+      "port": 80,
+      "environment": "production",
+      "outputPath": "deploy/real/.build"
+    }
+  }
+}

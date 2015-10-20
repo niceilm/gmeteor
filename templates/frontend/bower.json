@@ -1,0 +1,35 @@
+{
+  "name": "gmeteor-app",
+  "version": "0.0.1",
+  "dependencies": {
+    "angular": "1.4.7",
+    "angular-animate": "1.4.7",
+    "angular-aria": "1.4.7",
+    "angular-carousel": "1.0.1",
+    "angular-chart": "0.3.2",
+    "angular-i18n": "1.4.7",
+    "angular-local-storage": "0.2.3",
+    "angular-material": "0.11.3",
+    "angular-moment": "1.0.0-beta.2",
+    "angular-recaptcha": "2.2.5",
+    "angular-resource": "1.4.7",
+    "angular-sanitize": "1.4.7",
+    "angular-touch": "1.4.7",
+    "angular-ui-calendar": "1.0.1",
+    "angular-ui-grid": "3.0.7",
+    "angular-ui-router": "0.2.15",
+    "angular-ui-utils": "bower-mask",
+    "angularjs-viewhead": "0.0.1",
+    "ng-file-upload": "9.0.11",
+    "ngInfiniteScroll": "1.2.1",
+    "pikaday-angular": "2.0.0",
+    "oclazyload": "1.0.6",
+    "fl.common": "0.0.1",
+    "fl.lazy": "0.0.1",
+    "fl.meteor": "0.0.9"
+  },
+  "private": true,
+  "resolutions": {
+    "angular": "1.4.7"
+  }
+}

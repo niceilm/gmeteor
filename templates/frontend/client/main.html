@@ -1,0 +1,18 @@
+<head>
+  <title>gmeteor-app</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <base href="/">
+</head>
+
+<body layout="column">
+<md-content layout="column" flex ui-view class="container"></md-content>
+<div class="loading-container" ng-show="$root.isLoading">
+  <md-progress-circular class="md-warn" md-mode="indeterminate"></md-progress-circular>
+</div>
+<div style="display: none">
+  <md-input-container><label></label><input type="text"></md-input-container>
+  <md-input-container><label></label><textarea></textarea></md-input-container>
+</div>
+</body>

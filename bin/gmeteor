@@ -1,195 +1,376 @@
 #!/usr/bin/env node
 
+var util = require('util');
+var check = require('meteor-check').check;
+var Match = require('meteor-check').Match;
 var path = require('path');
+var async = require('async');
 var fs = require('fs');
 var program = require('commander');
-var chalk = require('chalk');
-var prettyTime = require('pretty-hrtime');
 var shelljs = require('shelljs');
 var readlineSync = require('readline-sync');
-var _ = require('underscore');
+var _ = require('lodash');
 var nconf = require('nconf');
-var moment = require('moment');
 var pkg = require('../package.json');
+
+var NTimer = require('../lib/ntimer');
+var UTILS = require('../lib/utils');
 
 var version = pkg.version;
 var executeDirPath = path.resolve('.');
 var gulpfilePath = path.normalize(__dirname + "/../gulp/gulpfile.js");
 var gmeteorJsonPath = path.normalize(executeDirPath + '/gmeteor.json');
+var defaultGmeteorJsonPath = path.normalize(__dirname + "/../assets/defaults-gmeteor.json");
 var _exit = process.exit;
-var NTimer = {
-  actionTime: {},
-  start: function(action) {
-    var currentTime = new Date();
-    this.actionTime[action] = process.hrtime();
-    console.log(log("[%s] Starting '%s'..."), moment(currentTime).format("HH:mm:ss"), action);
-  },
-  end: function(action) {
-    if(!this.actionTime[action]) {
-      return;
-    }
-    var currentTime = new Date();
-    var timeDiff = process.hrtime(this.actionTime[action]);
-    this.actionTime[action] = null;
-    console.log(log("[%s] Finished '%s' after %s"), moment(currentTime).format("HH:mm:ss"), action, prettyTime(timeDiff));
-  }
-};
-var error = chalk.bold.red;
-var warn = chalk.bold.yellow;
-var log = chalk.bold.green;
+var gulpExec = "gulp --gulpfile " + gulpfilePath + " --color --cwd " + executeDirPath;
 
 // Re-assign process.exit because of commander
 // TODO: Switch to a different command framework
 process.exit = exit;
 
+nconf.argv().env().defaults({
+  "test": false
+});
+
+NTimer.setDebug(nconf.get("DEBUG"));
+
+if(nconf.get("_")[0] === "create") {
+  program
+    .command("create <dest>")
+    .action(actionCreate);
+
+  try {
+    program.parse(process.argv);
+  } catch(ex) {
+    if(nconf.get("DEBUG")) {
+      NTimer.error(util.inspect(ex, {depth: 4}));
+    }
+  }
+
+  return;
+}
+
 if(!fs.existsSync(gmeteorJsonPath)) {
-  console.log(error("need gmeteor.json file"));
+  NTimer.error("need gmeteor.json file");
   exit(1);
   return;
 }
 
-nconf.argv().env().file({file: gmeteorJsonPath}).defaults({
-  "mup": {"path": "deploy/production"},
-  "meteor": {"path": "backend"},
-  "frontend": {"path": "frontend"},
-  "env": process.env.NODE_ENV,
-  "test": false
-});
+var gmeteorJson = _.defaultsDeep(require(gmeteorJsonPath), require(defaultGmeteorJsonPath));
+var suppportPhase = fs.readdirSync(gmeteorJson.info.path.deploy);
+var rxSupportPhase = new RegExp("^(" + suppportPhase.join("|") + ")$");
 
-program
-  .version(version)
-  .usage('[options] [dir]')
-  .option('-s, --source', 'gmeteor option file (defaults to gmeteor.json)')
-  .option('-f, --force', 'force on non-empty directory')
+program.version(version).usage("run [target] [options]").allowUnknownOption(true);
 
 program
   .command('run [target]')
-  .description('run meteor project')
-  .option("--test", "test enabled")
-  .option("--production", "production enabled")
-  .action(_.partial(actionRun, 'run'));
+  .usage("[target] [options]")
+  .description('run development')
+  .option('--enable-test', 'gmeteor - enable test mode')
+  .option('--phase <phase>', 'gmeteor - phase', rxSupportPhase, gmeteorJson.info.development)
+  .option('--disable-watch', 'gulp - disable watch mode')
+  .option('--production', 'meteor|gulp - Simulate production mode. Minify and bundle CSS and JS files.')
+  .option('--port', 'meteor - Port to listen on (instead of the default 3000). Also uses port N+1 and a port specified by --app-port. Specify as --port=host:port to bind to a specific interface')
+  .option('--debug-port', 'meteor - Specify a port to enable server-side debugging. The server will be paused at startup, waiting for incoming connections from debugger clients on the specified port.')
+  .option('--mobile-server', 'meteor - Location where mobile builds connect to the Meteor server. Defaults to your local IP and the port that the Meteor server binds to. Can include a URL scheme (for example, --mobile-server=https://example.com:443).')
+  .option('--raw-logs', 'meteor - Run without parsing logs from stdout and stderr.')
+  .option('--settings', 'meteor - Set optional data for Meteor.settings on the server.')
+  .option('--verbose', 'meteor - Print all output from builds logs.')
+  .option('--no-lint', "meteor - Don't run linters used by the app on every rebuild.")
+  .option('--allow-incompatible-update', 'meteor - Allow packages in your project to be upgraded or downgraded to versions that are potentially incompatible with the current versions, if required to satisfy all package version constraints.')
+  .option('--test', 'meteor - [Experimental] Run Velocity tests using phantomjs and exit.')
+  .action(_.partial(actionRun, 'run'))
+  .allowUnknownOption(true)
+  .on('--help', function() {
+    console.log('  Examples:');
+    console.log();
+    console.log('    $ gmeteor run');
+    console.log('    $ gmeteor run android');
+    console.log('    $ gmeteor run ios');
+    console.log('    $ gmeteor run android --mobile-server http://somedomain.com:80');
+    console.log();
+  });
 
 program
   .command('debug [target]')
-  .description('debug meteor project')
-  .option("--test", "test enabled")
-  .option("--production", "production enabled")
-  .action(_.partial(actionRun, 'debug'));
+  .description('run debug development')
+  .option('--phase <phase>', 'gmeteor - phase', rxSupportPhase, gmeteorJson.info.development)
+  .option('--enable-test', 'gmeteor - enable test mode')
+  .option('--disable-watch', 'gulp - disable watch mode')
+  .option('--production', 'meteor|gulp - Simulate production mode. Minify and bundle CSS and JS files.')
+  .option('--port', 'meteor - Port to listen on (instead of the default 3000). Also uses port N+1 and a port specified by --app-port. Specify as --port=host:port to bind to a specific interface')
+  .option('--debug-port', 'meteor - Specify a port to enable server-side debugging. The server will be paused at startup, waiting for incoming connections from debugger clients on the specified port.')
+  .option('--mobile-server', 'meteor - Location where mobile builds connect to the Meteor server. Defaults to your local IP and the port that the Meteor server binds to. Can include a URL scheme (for example, --mobile-server=https://example.com:443).')
+  .option('--raw-logs', 'meteor - Run without parsing logs from stdout and stderr.')
+  .option('--settings', 'meteor - Set optional data for Meteor.settings on the server.')
+  .option('--verbose', 'meteor - Print all output from builds logs.')
+  .option('--no-lint', "meteor - Don't run linters used by the app on every rebuild.")
+  .option('--allow-incompatible-update', 'meteor - Allow packages in your project to be upgraded or downgraded to versions that are potentially incompatible with the current versions, if required to satisfy all package version constraints.')
+  .option('--test', 'meteor - [Experimental] Run Velocity tests using phantomjs and exit.')
+  .action(_.partial(actionRun, 'debug'))
+  .allowUnknownOption(true)
+  .on('--help', function() {
+    console.log('  Examples:');
+    console.log();
+    console.log('    $ gmeteor debug');
+    console.log('    $ gmeteor debug android');
+    console.log('    $ gmeteor debug ios');
+    console.log('    $ gmeteor debug android --mobile-server http://somedomain.com:80');
+    console.log();
+  });
 
 program
-  .command('build [action]')
-  .description('build')
+  .command('build')
+  .description('build for mobile app')
+  .option('--android', 'gmeteor - android jarsign and zipalign')
+  .option('--appname', 'gmeteor - appname')
+  .option('--keystore', 'gmeteor - keystore')
+  .option('--storepass', 'gmeteor - storepass')
+  .option('--apkpath', 'gmeteor - apkpath')
+  .option('--phase <phase>', 'gmeteor - phase', rxSupportPhase, gmeteorJson.info.production)
+  .option('--disable-production', 'gmeteor - disabled production mode')
+  .option('--debug', "meteor - Build in debug mode (don't minify, etc).")
+  .option('--directory', "meteor - Output a directory (rather than a tarball) for the application server bundle. If the output location exists, it will be recursively deleted first.")
+  .option('--mobile-settings', "meteor - Set optional data for the initial value of Meteor.settings in your mobile application. A new value for Meteor.settings can be set later by the server as part of hot code push.")
+  .option('--server', "meteor - Location where mobile builds connect to the Meteor server. Defaults to localhost:3000. Can include a URL scheme(for example, --server=https://example.com:443).")
+  .option('--architecture', "meteor - Builds the server for a different architecture than your developer machine's architecture. Valid architectures include os.osx.x86_64, os.linux.x86_64, and os.linux.x86_32.")
+  .option('--allow-incompatible-update', "meteor - Allow packages in your project to be upgraded or downgraded to versions that are potentially incompatible with the current versions, if required to satisfy all package version constraints.")
+  .allowUnknownOption(true)
   .action(actionBuild);
 
 program
-  .command('deploy')
+  .command('jarsigner')
+  .description('jarsigner for android app')
+  .option('--appname', 'gmeteor - appname')
+  .option('--keystore', 'gmeteor - keystore')
+  .option('--storepass', 'gmeteor - storepass')
+  .option('--phase <phase>', 'gmeteor - phase', rxSupportPhase, gmeteorJson.info.production)
+  .allowUnknownOption(true)
+  .action(actionJarsigner);
+
+program
+  .command('zipalign')
+  .description('zipalign for andoird app')
+  .option('--phase <phase>', 'gmeteor - phase', rxSupportPhase, gmeteorJson.info.production)
+  .option('--apkpath', 'gmeteor - apkpath')
+  .allowUnknownOption(true)
+  .action(actionZipalign);
+
+program
+  .command('deploy [phase]')
+  .option('--disable-production', 'gmeteor - disabled production mode')
   .description('deploy meteor project')
+  .allowUnknownOption(true)
   .action(actionDeploy);
 
 program
   .command('gulp [task]')
   .description('gulp wrapper')
+  .option('--production', "production mode")
+  .option('--watch', "watch mode")
+  .allowUnknownOption(true)
   .action(actionGulp);
 
 program
-  .command('mup')
+  .command('mup [command]')
+  .option('--phase <phase>', 'gmeteor - phase', rxSupportPhase, gmeteorJson.info.production)
+  .option('-f', 'mup - forever')
+  .option('-n <number>', 'mup - line number', parseInt)
   .description('mup wrapper')
+  .allowUnknownOption(true)
   .action(actionMup);
 
 program
-  .command('meteor')
+  .command('meteor [command]')
   .description('meteor wrapper')
+  .allowUnknownOption(true)
   .action(actionMeteor);
 
 program
+  .command('bower [command]')
+  .description('bower wrapper')
+  .allowUnknownOption(true)
+  .action(actionBower);
+
+program
   .command('install')
-  .description('install')
+  .description('install local development')
+  .allowUnknownOption(true)
   .action(actionInstall);
 
 program
-  .command('*')
+  .command('setup [phase]')
+  .description('setup server environment')
+  .allowUnknownOption(true)
+  .action(actionSetup);
+
+program
+  .command('*', "", {noHelp: true})
   .action(function() {
-    console.log(error('not found command'));
+    NTimer.error('not found command');
   });
 
-program.parse(process.argv);
-
-function processMeteorBuild() {
-  NTimer.start("gmeteor build");
-
-  var options = {
-    buildPath: getAbsolutePath(nconf.get("mobile:buildPath")),
-    server: nconf.get("production:rootUrl"),
-    settings: getAbsolutePath(nconf.get("production:settings"))
-  };
-  shelljs.cd(getAbsolutePath(nconf.get("meteor:path")));
-  shelljs.exec(_.template("meteor build <%=buildPath%> --server <%=server%> --mobile-settings <%=settings%>")(options));
-
-  NTimer.end("gmeteor build");
+try {
+  program.parse(process.argv);
+} catch(ex) {
+  if(nconf.get("DEBUG")) {
+    NTimer.error(util.inspect(ex, {depth: 4}));
+  }
 }
 
-function processJasrsigner() {
-  NTimer.start("jarsigner");
 
-  var options = {
-    "appname": nconf.get("production:name"),
-    "keystore": getAbsolutePath(nconf.get("mobile:keystore")),
-    "storepass": nconf.get("mobile:storepass") || readlineSync.question('type storepass : ', {hideEchoBack: true})
-  };
-  shelljs.cd(getAbsolutePath(nconf.get("mobile:buildPath") + "/android"));
-  shelljs.exec(_.template("jarsigner -keystore <%=keystore %> -verbose -sigalg SHA1withRSA -digestalg SHA1 -storepass <%=storepass%> unaligned.apk <%=appname %>")(options));
-
-  NTimer.end("jarsigner");
-}
-
-function processZipalign() {
-  NTimer.start("zipalign");
-
-  var options = {
-    apkPath: getAbsolutePath(nconf.get("mobile:apkPath"))
-  };
-  var execStr = _.template("~/.meteor/android_bundle/android-sdk/build-tools/20.0.0/zipalign -f 4 unaligned.apk <%=apkPath%>")(options);
-  shelljs.cd(getAbsolutePath(nconf.get("mobile:buildPath") + "/android"));
-  shelljs.exec(execStr);
-
-  NTimer.end("zipalign");
-}
-
-function processMeteorRun(action, target, options) {
-  action = action || "run";
-  NTimer.start("meteor " + action);
+function processMeteorBuild(phase, cb) {
+  var settingsPath = getSettingsPath(phase);
+  var server = getFullUrl(phase);
 
   var params = {
-    action: action || "run",
-    target: target || "",
-    server: nconf.get("development:rootUrl") || "http://localhost",
-    port: nconf.get("development:port"),
-    settings: getAbsolutePath(nconf.get("development:settings"))
+    outputPath: getOutputPath(phase)
   };
-  params.production = options.production ? "--production" : "";
-  var disabledTest = [
-    "JASMINE_SERVER_UNIT=0",
-    "JASMINE_SERVER_INTEGRATION=0",
-    "JASMINE_CLIENT_UNIT=0",
-    "JASMINE_CLIENT_INTEGRATION=0"
-  ].join(" ");
-  var execStr = _.template('ROOT_URL=<%=server%> PORT=<%=port%> meteor <%=action%> <%=target %> -p <%=port%> --mobile-server=<%=server%> --settings <%=settings %> <%=production%>')(params);
-  shelljs.cd(getAbsolutePath(nconf.get("meteor:path")));
-  shelljs.exec((options.test ? "" : disabledTest + " ") + execStr);
 
-  NTimer.end("meteor " + action);
+  if(server) {
+    params.server = "--server " + server;
+  }
+  if(fs.existsSync(settingsPath)) {
+    params.settings = "--mobile-settings " + settingsPath;
+  }
+
+  _.forEach(["directory", "architecture"], function(value) {
+    if(nconf.get(value)) {
+      params[value] = "--" + value + " " + nconf.get(value);
+    }
+  });
+
+  _.forEach(["debug", "allow-incompatible-update"], function(value) {
+    if(nconf.get(value)) {
+      params[value] = "--" + value;
+    }
+  });
+
+  var meteorExecStr = "meteor build";
+
+  _.forEach(params, function(value, key) {
+    meteorExecStr += " " + value;
+  });
+
+  shelljs.cd(getAbsolutePath(gmeteorJson.info.path.backend));
+  NTimer.debug("exec : " + meteorExecStr);
+  NTimer.start("meteor build");
+  shelljs.exec(meteorExecStr, function() {
+    NTimer.end("meteor build");
+    (cb || _.noop)();
+  });
 }
 
-function processByCommand(exec, command) {
-  var execStr = exec + " " + command + " " + process.argv.slice(4).join(" ");
+function actionZipalign(options, cb) {
+  if(nconf.get("help")) {
+    return;
+  }
+
+  if(!_.isString(options.phase)) {
+    return NTimer.error("check phase ex) " + suppportPhase.join(", "));
+  }
+
+  var androidPath = getOutputPath(options.phase) + "/android";
+
+  if(!fs.existsSync(androidPath)) {
+    return NTimer.error("first gmeteor build");
+  }
+
+  var zipalignPath = gmeteorJson.exec.zipalign;
+  if(!zipalignPath) {
+    return NTimer.error("add exec zipalign path in gmeteor.json");
+  }
+
+  var execStr = zipalignPath + " -f 4 release-unsigned.apk " + getApkPath(options.phase);
+
+  shelljs.cd(androidPath);
+
+  var command = "zipalign " + options.phase;
+  NTimer.start(command);
+  NTimer.debug("exec : " + execStr);
+  shelljs.exec(execStr, function() {
+    NTimer.end(command);
+    (cb || _.noop)();
+  });
+}
+
+function processMeteorRun(action, target, phase, cb) {
+  action = action || "run";
+  NTimer.start("meteor " + action);
+  var settingsPath = getSettingsPath(phase);
+  var port = nconf.get("port") || gmeteorJson.phase[phase].port;
+  var params = {
+    action: action || "run",
+    target: target || ""
+  };
+  var rootUrl = getFullUrl(phase);
+
+  if(fs.existsSync(settingsPath)) {
+    params.settings = "--settings " + settingsPath;
+  }
+
+  if(port) {
+    params.port = "--port " + port;
+  }
+
+  _.forEach(["mobile-server", "debug-port"], function(value) {
+    if(nconf.get(value)) {
+      params[value] = "--" + value + " " + nconf.get(value);
+    }
+  });
+
+  _.forEach(["raw-logs", "production", "verbose", "no-lint", "allow-incompatible-update", "test"], function(value) {
+    if(nconf.get(value)) {
+      params[value] = "--" + value;
+    }
+  });
+
+  var DISABLED_TEST_ENV = nconf.get("enable-test") ? "" : _.map({
+    "JASMINE_SERVER_UNIT": 0,
+    "JASMINE_SERVER_INTEGRATION": 0,
+    "JASMINE_CLIENT_UNIT": 0,
+    "JASMINE_CLIENT_INTEGRATION": 0
+  }, UTILS.keyPlusValue).join(" ") + " ";
+
+  var BASE_ENV = _.map(gmeteorJson.phase[phase].env, UTILS.keyPlusValue).join(" ") + " ";
+
+  var CLI_ENV = _.map({ROOT_URL: rootUrl}, UTILS.keyPlusValue).join(" ") + " ";
+
+  var meteorExecStr = "meteor";
+
+  _.forEach(params, function(value, key) {
+    meteorExecStr += " " + value;
+  });
+
+  var execStr = DISABLED_TEST_ENV + BASE_ENV + CLI_ENV + meteorExecStr;
+
+  shelljs.cd(getAbsolutePath(gmeteorJson.info.path.backend));
+  NTimer.debug("exec : " + execStr);
+  shelljs.exec(execStr, function(code, output) {
+    NTimer.end("meteor " + action);
+    cb();
+  });
+}
+
+function processByCommand(exec, command, cb) {
+  var execStr = exec + " " + command;
   NTimer.start(execStr);
-  shelljs.cd(getAbsolutePath(nconf.get(exec + ":path")));
-  shelljs.exec(execStr);
-  NTimer.end(execStr);
+  NTimer.debug("exec : " + execStr);
+  shelljs.exec(execStr, function() {
+    NTimer.end(execStr);
+    (cb || _.noop)();
+  });
 }
 
 function processPreprocess(phase) {
-  shelljs.cp("-f", getAbsolutePath("deploy/" + phase + "/mobile-config.js"), getAbsolutePath(nconf.get("meteor:path")));
+  var mobileConfigJsPath = getAbsolutePath(gmeteorJson.info.path.deploy + "/" + phase + "/mobile-config.js");
+  var backendPath = getAbsolutePath(gmeteorJson.info.path.backend);
+  NTimer.start("preprocess");
+  if(fs.existsSync(mobileConfigJsPath)) {
+    shelljs.cp("-f", mobileConfigJsPath, backendPath);
+    NTimer.log("copy : " + mobileConfigJsPath + " to : " + backendPath);
+  }
+  NTimer.end("preprocess");
 }
 
 function getAbsolutePath(sourcePath) {
@@ -226,57 +407,366 @@ function exit(code) {
 }
 
 function actionRun(command, target, options) {
-  NTimer.start("gmeteor " + command);
-  processPreprocess('development');
-  processMeteorRun(command, target, options);
-  NTimer.end("gmeteor " + command);
-}
-
-function actionBuild(action) {
-  NTimer.start("gmeteor build");
-  processPreprocess('production');
-  actionGulp('gulp:production');
-  processMeteorBuild();
-  if(action === 'android') {
-    processJasrsigner();
-    processZipalign();
+  if(nconf.get("help")) {
+    return;
   }
-  NTimer.end("gmeteor build");
+
+  if(!_.isString(options.phase)) {
+    return NTimer.error("check phase ex) " + suppportPhase.join(", "));
+  }
+
+  var watchMode = nconf.get("disable-watch") ? false : true;
+  var commandStr = "gmeteor " + command + " " + options.phase;
+  NTimer.start(commandStr);
+  processPreprocess(options.phase);
+  processGulp(watchMode, nconf.get("production") || isProduction(options.phase));
+  processMeteorRun(command, target, options.phase, function() {
+    NTimer.end(commandStr);
+  });
 }
 
-function actionDeploy() {
-  NTimer.start("gmeteor deploy");
-  processPreprocess('production');
-  actionGulp('gulp:production');
-  processByCommand("mup", "deploy");
-  NTimer.end("gmeteor deploy");
+function actionBuild(options) {
+  if(nconf.get("help")) {
+    return;
+  }
+
+  if(!_.isString(options.phase)) {
+    return NTimer.error("check phase ex) " + suppportPhase.join(", "));
+  }
+
+  var productionMode = nconf.get("disable-production") ? false : isProduction(options.phase);
+  var command = "gmeteor build " + options.phase;
+  NTimer.start(command);
+
+  async.series([
+      function(callback) {
+        processPreprocess(options.phase);
+        callback();
+      },
+      function(callback) {
+        processGulp(false, productionMode, callback);
+      },
+      function(callback) {
+        processMeteorBuild(options.phase, callback);
+      },
+      function(callback) {
+        if(nconf.get("android")) {
+          actionJarsigner(options, callback);
+        } else {
+          callback();
+        }
+      },
+      function(callback) {
+        if(nconf.get("android")) {
+          actionZipalign(options, callback);
+        } else {
+          callback();
+        }
+      }
+    ],
+    function(err, results) {
+      NTimer.end(command);
+    });
 }
 
-function actionMup(command) {
-  NTimer.start("mup");
-  processByCommand("mup", command);
-  NTimer.end("mup");
+function actionJarsigner(options, cb) {
+  if(nconf.get("help")) {
+    return;
+  }
+
+  if(!_.isString(options.phase)) {
+    return NTimer.error("check phase ex) " + suppportPhase.join(", "));
+  }
+
+  var androidPath = getOutputPath(options.phase) + "/android";
+
+  if(!fs.existsSync(androidPath)) {
+    return NTimer.error("first gmeteor build");
+  }
+
+  var params = {
+    "appname": getAppName(options.phase),
+    "keystore": getKeyStore(options.phase),
+    "storepass": getStorePass(options.phase)
+  };
+  shelljs.cd(androidPath);
+  var execStr = _.template("jarsigner -keystore <%=keystore%> -verbose -sigalg SHA1withRSA -digestalg SHA1 -storepass <%=storepass%> release-unsigned.apk <%=appname%>")(params);
+  var command = "jarsigner " + options.phase;
+  NTimer.start(command);
+  NTimer.debug("exec : " + execStr);
+  shelljs.exec(execStr, function() {
+    NTimer.end(command);
+    (cb || _.noop)();
+  });
 }
 
-function actionMeteor(command) {
-  NTimer.start("meteor");
-  processByCommand("meteor", command);
-  NTimer.end("meteor");
+function actionDeploy(phase) {
+  if(nconf.get("help")) {
+    return;
+  }
+
+  phase = phase || gmeteorJson.info.production;
+
+  if(!rxSupportPhase.test(phase)) {
+    return NTimer.error("check phase ex) " + suppportPhase.join(", "));
+  }
+
+  var productionMode = nconf.get("disable-production") ? false : isProduction(phase);
+  var command = "gmeteor deploy " + phase;
+
+  NTimer.start(command);
+  async.series([
+      function(callback) {
+        processPreprocess(phase);
+        callback();
+      },
+      function(callback) {
+        processGulp(false, productionMode, callback);
+      },
+      function(callback) {
+        shelljs.cd(getAbsolutePath(gmeteorJson.info.path.deploy + "/" + phase));
+        processByCommand("mup", "deploy", callback);
+      }
+    ],
+    function(err, results) {
+      NTimer.end(command);
+    });
+}
+
+function actionMup(command, options) {
+  if(nconf.get("help")) {
+    return;
+  }
+
+  if(!_.isString(options.phase)) {
+    return NTimer.error("check phase ex) " + suppportPhase.join(", "));
+  }
+
+  if(!_.isUndefined(options.N) && _.isNaN(options.N)) {
+    return NTimer.error("check -n <number value> ex) gmeteor mup -n 100");
+  }
+
+  shelljs.cd(getAbsolutePath(gmeteorJson.info.path.deploy + "/" + options.phase));
+  var commandStr = "mup wrapper " + options.phase;
+  var exec = UTILS.removeOption(process.argv.slice(2).join(" "), "--phase");
+  NTimer.start(commandStr);
+  NTimer.debug(exec);
+  shelljs.exec(exec, function() {
+    NTimer.end(commandStr);
+  });
+}
+
+/**
+ *
+ * @param {String} phase
+ */
+function actionSetup(phase) {
+  check(phase, Match.Optional(phase));
+  if(nconf.get("help")) {
+    return;
+  }
+
+  phase = phase || gmeteorJson.info.production;
+
+  if(!rxSupportPhase.test(phase)) {
+    return NTimer.error("check phase ex) " + suppportPhase.join(", "));
+  }
+
+  shelljs.cd(getAbsolutePath(gmeteorJson.info.path.deploy + "/" + phase));
+  var command = "gmeteor setup " + phase;
+  NTimer.start(command);
+  processByCommand("mup", "setup", function() {
+    NTimer.end(command);
+  });
+}
+
+function actionMeteor() {
+  if(nconf.get("help")) {
+    return;
+  }
+
+  shelljs.cd(gmeteorJson.info.path.backend);
+
+  NTimer.start("meteor wrapper");
+  shelljs.exec(process.argv.slice(2).join(" "), function() {
+    NTimer.end("meteor wrapper");
+  });
+}
+
+function actionBower() {
+  if(nconf.get("help")) {
+    return;
+  }
+
+  shelljs.cd(gmeteorJson.info.path.frontend);
+
+  NTimer.start("bower wrapper");
+  shelljs.exec(process.argv.slice(2).join(" "), function() {
+    NTimer.end("bower wrapper");
+  });
 }
 
 function actionGulp(task) {
-  var execStr = "gulp --gulpfile " + gulpfilePath + " --cwd " + executeDirPath + " " + (task || "") + " " + process.argv.slice(4).join(" ");
+  if(nconf.get("help")) {
+    return;
+  }
+
+  var execStr = getGulpExec(nconf.get("watch"), nconf.get("production"), task) + " " + process.argv.slice(4).join(" ");
+
   NTimer.start("gulp");
-  shelljs.exec(execStr);
-  NTimer.end("gulp");
+  NTimer.debug("exec : " + execStr);
+  shelljs.exec(execStr, function(code, output) {
+    NTimer.end("gulp");
+  });
+}
+
+/**
+ *
+ * @param {Boolean} isWatch
+ * @param {Boolean} isProduction
+ * @param {Function} cb
+ */
+function processGulp(isWatch, isProduction, cb) {
+  check(isWatch, Boolean);
+  check(isProduction, Boolean);
+  check(cb, Match.Optional(Function));
+  var execStr = getGulpExec(isWatch, isProduction);
+  NTimer.start("gulp");
+  NTimer.debug("exec : " + execStr);
+  shelljs.exec(execStr, function(code, output) {
+    NTimer.end("gulp");
+    (cb || _.noop)();
+  });
 }
 
 function actionInstall() {
+  if(nconf.get("help")) {
+    return;
+  }
+
   NTimer.start("gmeteor install");
 
-  shelljs.cd(getAbsolutePath(nconf.get("frontend:path")));
-  shelljs.exec("bower install");
-
-  NTimer.end("gmeteor install");
+  async.series([
+    function(callback) {
+      if(!shelljs.which("meteor")) {
+        var commandExec = "curl https://install.meteor.com/ | sh";
+        NTimer.log("meteor not installed");
+        NTimer.start(commandExec);
+        shelljs.exec(commandExec, function() {
+          NTimer.end(commandExec);
+          callback();
+        });
+      } else {
+        callback();
+      }
+    },
+    function(callback) {
+      async.eachSeries(["gulp", "bower", "mup"], function(value, callback) {
+        if(!shelljs.which(value)) {
+          var commandExec = "npm install -g " + value;
+          NTimer.log(value + " not installed");
+          NTimer.start(commandExec);
+          shelljs.exec(commandExec, function() {
+            NTimer.end(commandExec);
+            callback();
+          });
+        } else {
+          callback();
+        }
+      }, callback);
+    },
+    function(callback) {
+      var frontendPath = getAbsolutePath(gmeteorJson.info.path.frontend);
+      if(!fs.existsSync(frontendPath + "/bower.json")) {
+        NTimer.error("not exist " + frontendPath + "/bower.json");
+        callback();
+      } else {
+        shelljs.cd(frontendPath);
+        NTimer.start("bower install");
+        shelljs.exec("bower install", function() {
+          NTimer.end("bower install");
+          callback();
+        });
+      }
+    }
+  ], function(err) {
+    NTimer.end("gmeteor install");
+  });
 }
 
+
+function getApkPath(phase) {
+  return getAbsolutePath(nconf.get("apkpath") || gmeteorJson.phase[phase].apkPath || gmeteorJson.info.path.deploy + "/" + phase + "/" + getAppName(phase) + ".apk");
+}
+function getAppName(phase) {
+  return nconf.get("appname") || gmeteorJson.phase[phase].name || gmeteorJson.info.name;
+}
+
+function getSettingsPath(phase) {
+  return getAbsolutePath(nconf.get("settings") || nconf.get("mobile-settings") || gmeteorJson.info.path.deploy + "/" + phase + "/settings.json");
+}
+
+function getKeyStore(phase) {
+  return getAbsolutePath(nconf.get("keystore") || gmeteorJson.phase[phase].keystore);
+}
+
+function getStorePass(phase) {
+  return nconf.get("storepass") || gmeteorJson.phase[phase].storepass || readlineSync.question('type storepass : ', {hideEchoBack: true});
+}
+
+/**
+ *
+ * @param {Boolean} isWatch
+ * @param {Boolean} isProduction
+ * @param {String} task
+ * @returns {string}
+ */
+function getGulpExec(isWatch, isProduction, task) {
+  check(isWatch, Match.Optional(Boolean));
+  check(isProduction, Match.Optional(Boolean));
+  check(task, Match.Optional(String));
+
+  if(isWatch) {
+    gulpExec += " --watch";
+  }
+
+  if(isProduction) {
+    gulpExec += " --production";
+  }
+
+  return gulpExec + " " + (task || "");
+}
+
+function getOutputPath(phase) {
+  return getAbsolutePath(gmeteorJson.phase[phase].outputPath || gmeteorJson.info.path.deploy + "/" + phase + "/.build");
+}
+
+function getFullUrl(phase) {
+  var url = gmeteorJson.phase[phase].url;
+  var port = nconf.get("port") || gmeteorJson.phase[phase].port || 3000;
+
+  if(_.isNumber(port)) {
+    return url + ":" + port;
+  }
+
+  return url;
+}
+
+function isProduction(phase) {
+  return gmeteorJson.phase[phase].environment === "production";
+}
+
+function actionCreate(dest) {
+  if(!dest) {
+    return;
+  }
+  var destDir = dest.indexOf(path.sep) === 0 ? dest : path.normalize(executeDirPath + "/" + dest);
+  var sourceDir = path.normalize(__dirname + "/../templates/*");
+  var commandExec = "gmeteor create " + dest;
+  if(fs.existsSync(destDir)) {
+    return NTimer.error("folder exist!!");
+  }
+  NTimer.start(commandExec);
+  shelljs.cp('-R', sourceDir, destDir);
+  NTimer.end(commandExec);
+}

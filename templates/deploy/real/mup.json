@@ -1,0 +1,27 @@
+{
+  "servers": [
+    {
+      "host": "gmeteor-app.com",
+      "username": "USERNAME",
+      "pem": "~/.ssh/id_rsa",
+      "sshOptions": {
+        "port": 22
+      }
+    }
+  ],
+  "setupMongo": false,
+  "setupNode": false,
+  "setupPhantom": false,
+  "nodeVersion": "0.10.40",
+  "appName": "nbbs",
+  "app": "~/Projects/nbbs/backend",
+  "env": {
+    "PORT": 43001,
+    "ROOT_URL": "http://gmeteor-app.com",
+    "MONGO_URL": "mongodb://localhost:27017/gmeteor-app",
+    "METEOR_ENV": "production",
+    "CLUSTER_WORKERS_COUNT": "auto"
+  },
+  "deployCheckWaitTime": 15,
+  "enableUploadProgressBar": false
+}

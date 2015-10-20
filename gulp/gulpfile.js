@@ -6,18 +6,16 @@ var iife = require("gulp-iife");
 var ngAnnotate = require('gulp-ng-annotate');
 var del = require('del');
 var nconf = require('nconf');
-
+var _ = require('lodash');
 var executeDirPath = path.resolve('.');
 var gmeteorJsonPath = path.normalize(executeDirPath + '/gmeteor.json');
+var defaultGmeteorJsonPath = path.normalize(__dirname + "/../assets/defaults-gmeteor.json");
+var gmeteorJson = _.defaultsDeep(require(gmeteorJsonPath), require(defaultGmeteorJsonPath));
+var gulpOption = gmeteorJson.gulp;
 
-nconf.argv().env().file({file: gmeteorJsonPath}).defaults({
-  "env": process.env.NODE_ENV
-});
-
-var isProduction = false;
+nconf.argv();
 
 gulp.task('default', ['gulp:base'], processDefault);
-
 gulp.task('gulp:clean', processClean);
 gulp.task('gulp:public', processPublic);
 gulp.task('gulp:client', processClient);
@@ -25,51 +23,45 @@ gulp.task('gulp:js', prcessJs);
 gulp.task('gulp:js-lib', prcessJsLib);
 gulp.task('gulp:watch', processWatch);
 gulp.task('gulp:base', ['gulp:clean'], processBase);
-gulp.task('gulp:production', processProduction);
-
-function processProduction() {
-  isProduction = true;
-  gulp.start('gulp:base');
-}
 
 function processClean(cb) {
-  del([nconf.get("gulp:public:target") + '/**', nconf.get("gulp:client:target") + '/**'], {force: true}, cb);
+  return del([gulpOption.public.target + '/**', gulpOption.client.target + '/**'], {force: true});
 }
 
 function processPublic() {
-  return gulp.src(nconf.get("gulp:public:all"))
-    .pipe(gulp.dest(nconf.get("gulp:public:target")));
+  return gulp.src(gulpOption.public.all)
+    .pipe(gulp.dest(gulpOption.public.target));
 }
 
 function processClient() {
-  return gulp.src(nconf.get("gulp:client:all"))
-    .pipe(gulp.dest(nconf.get("gulp:client:target")));
+  return gulp.src(gulpOption.client.all)
+    .pipe(gulp.dest(gulpOption.client.target));
 }
 
 function prcessJs() {
-  return gulp.src(nconf.get("gulp:public:js"))
-    .pipe(gulpif(isProduction, ngAnnotate()))
-    .pipe(gulpif(isProduction, uglify()))
+  return gulp.src(gulpOption.public.js)
+    .pipe(gulpif(nconf.get("production"), ngAnnotate()))
+    .pipe(gulpif(nconf.get("production"), uglify()))
     .pipe(iife())
-    .pipe(gulp.dest(nconf.get("gulp:public:target")));
+    .pipe(gulp.dest(gulpOption.public.target));
 }
 
 function prcessJsLib() {
-  return gulp.src(nconf.get("gulp:public:js-lib"))
-    .pipe(gulpif(isProduction, ngAnnotate()))
-    .pipe(gulpif(isProduction, uglify()))
-    .pipe(gulp.dest(nconf.get("gulp:public:target")));
+  return gulp.src(gulpOption.public["js-lib"])
+    .pipe(gulpif(nconf.get("production"), ngAnnotate()))
+    .pipe(gulpif(nconf.get("production"), uglify()))
+    .pipe(gulp.dest(gulpOption.public.target));
 }
 
 function processWatch() {
-  gulp.watch(nconf.get("gulp:public:all"), ['gulp:public', 'gulp:js']);
-  gulp.watch(nconf.get("gulp:client:all"), ['gulp:client']);
-  gulp.watch(nconf.get("gulp:public:js"), ['gulp:js']);
-  gulp.watch(nconf.get("gulp:public:js-lib"), ['gulp:js-lib']);
+  gulp.watch(gulpOption.public.all, ['gulp:public', 'gulp:js']);
+  gulp.watch(gulpOption.client.all, ['gulp:client']);
+  gulp.watch(gulpOption.public.js, ['gulp:js']);
+  gulp.watch(gulpOption.public["js-lib"], ['gulp:js-lib']);
 }
 
 function processDefault() {
-  if(!isProduction) {
+  if(nconf.get("watch")) {
     gulp.start('gulp:watch')
   }
 }
