@@ -1,6 +1,5 @@
 {
   "info": {
-    "name": "meteor-app",
     "path": {
       "deploy": "deploy",
       "frontend": "frontend",
@@ -37,13 +36,14 @@
       "url": "http://localhost",
       "port": 3000,
       "environment": "development",
-      "test": true,
+      "test": false,
       "outputPath": "deploy/local/.build"
     },
     "real": {
       "url": "http://somedomain.com",
       "port": 80,
       "environment": "production",
+      "test": false,
       "outputPath": "deploy/real/.build"
     }
   }

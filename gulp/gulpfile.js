@@ -7,12 +7,7 @@ var ngAnnotate = require('gulp-ng-annotate');
 var del = require('del');
 var nconf = require('nconf');
 var _ = require('lodash');
-var executeDirPath = path.resolve('.');
-var gmeteorJsonPath = path.normalize(executeDirPath + '/gmeteor.json');
-var defaultGmeteorJsonPath = path.normalize(__dirname + "/../assets/defaults-gmeteor.json");
-var gmeteorJson = _.defaultsDeep(require(gmeteorJsonPath), require(defaultGmeteorJsonPath));
-var gulpOption = gmeteorJson.gulp;
-
+var gulpOption = require("../lib/load-gmeteor-json").gulp;
 nconf.argv();
 
 gulp.task('default', ['gulp:base'], processDefault);

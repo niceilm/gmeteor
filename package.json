@@ -1,7 +1,7 @@
 {
   "name": "gmeteor",
   "description": "meteor, mup and gulp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "flynn <niceilm@naver.com>",
   "keywords": [
     "meteor",
@@ -13,6 +13,7 @@
   "dependencies": {
     "async": "^1.4.2",
     "chalk": "^1.1.1",
+    "cjson": "^0.3.2",
     "commander": "^2.9.0",
     "del": "^2.0.2",
     "gulp": "^3.9.0",
@@ -40,7 +41,6 @@
     "node": ">= 0.10"
   },
   "files": [
-    "LICENSE",
     "bin/",
     "lib/",
     "gulp/",
