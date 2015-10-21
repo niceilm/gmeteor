@@ -415,7 +415,6 @@ function exit(code) {
 }
 
 function actionRun(command, target, options) {
-  console.log(arguments);
   if(!_.isString(options.phase)) {
     return Logger.error("check phase ex) " + supportPhase.join(", "));
   }
@@ -491,7 +490,8 @@ function actionJarsigner(phase, options, cb) {
     "storepass": getStorePass(phase)
   };
   shelljs.cd(androidPath);
-  var execStr = _.template("jarsigner -keystore <%=keystore%> -verbose -sigalg SHA1withRSA -digestalg SHA1 -storepass <%=storepass%> release-unsigned.apk <%=appname%>")(params);
+  // TODO apk 확장자를 가진 파일을 찾도록 해볼 것
+  var execStr = _.template("jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore <%=keystore%> -storepass <%=storepass%> release-unsigned.apk <%=appname%>")(params);
   var timeLabel = "jarsigner " + phase;
   Logger.time(timeLabel);
   Logger.debug("exec : " + execStr);
