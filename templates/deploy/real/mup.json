@@ -13,8 +13,8 @@
   "setupNode": false,
   "setupPhantom": false,
   "nodeVersion": "0.10.40",
-  "appName": "nbbs",
-  "app": "~/Projects/nbbs/backend",
+  "appName": "gmeteor-app",
+  "app": "~/Projects/gmeteor-app/backend",
   "env": {
     "PORT": 43001,
     "ROOT_URL": "http://gmeteor-app.com",
