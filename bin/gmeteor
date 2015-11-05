@@ -669,7 +669,7 @@ function actionInstall() {
 
 
 function getApkPath(phase) {
-  return getAbsolutePath(nconf.get("apkpath") || gmeteorJson.phase[phase].apkPath || gmeteorJson.info.path.deploy + "/" + phase + "/" + getAppName(phase) + "-" + phase + "-" + moment().format("YYYYMMDD_HHmmss") + ".apk");
+  return getAbsolutePath(nconf.get("apkpath") || gmeteorJson.phase[phase].apkPath || gmeteorJson.info.path.deploy + "/" + phase + "/" + getAppName(phase) + "-" + moment().format("YYYYMMDD_HHmmss") + ".apk");
 }
 function getAppName(phase) {
   return nconf.get("appname") || gmeteorJson.phase[phase].name || gmeteorJson.info.name;
