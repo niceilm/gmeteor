@@ -46,7 +46,7 @@ Logger.setDebug(isDebugMode);
 
 try {
   gmeteorJson = require("../lib/load-gmeteor-json");
-  supportPhase = fs.readdirSync(gmeteorJson.info.path.deploy);
+  supportPhase = _.filter(fs.readdirSync(gmeteorJson.info.path.deploy), _.negate(_.partial(_.startsWith, _,".")));
   rxSupportPhase = new RegExp("^(" + supportPhase.join("|") + ")$");
   developmentPhase = gmeteorJson.info.development;
   productionPhase = gmeteorJson.info.production;
