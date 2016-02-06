@@ -13,14 +13,22 @@ nconf.argv();
 gulp.task('default', ['gulp:base'], processDefault);
 gulp.task('gulp:clean', processClean);
 gulp.task('gulp:public', processPublic);
+gulp.task('gulp:typings', processTypings);
 gulp.task('gulp:client', processClient);
 gulp.task('gulp:js', prcessJs);
 gulp.task('gulp:js-lib', prcessJsLib);
 gulp.task('gulp:watch', processWatch);
 gulp.task('gulp:base', ['gulp:clean'], processBase);
 
-function processClean(cb) {
+function processClean() {
   return del([gulpOption.public.target + '/**', gulpOption.client.target + '/**'], {force: true});
+}
+
+function processTypings() {
+  if(gulpOption.typings && gulpOption.typings.all) {
+    return gulp.src(gulpOption.typings.all)
+      .pipe(gulp.dest(gulpOption.typings.target));
+  }
 }
 
 function processPublic() {
@@ -49,6 +57,10 @@ function prcessJsLib() {
 }
 
 function processWatch() {
+  if(gulpOption.typings && gulpOption.typings.all) {
+    gulp.watch(gulpOption.typings.all, ['gulp:typings']);
+  }
+
   gulp.watch(gulpOption.public.all, ['gulp:public', 'gulp:js']);
   gulp.watch(gulpOption.client.all, ['gulp:client']);
   gulp.watch(gulpOption.public.js, ['gulp:js']);
@@ -62,5 +74,5 @@ function processDefault() {
 }
 
 function processBase() {
-  gulp.start('gulp:client', 'gulp:public', 'gulp:js', 'gulp:js-lib');
+  gulp.start('gulp:typings', 'gulp:client', 'gulp:public', 'gulp:js', 'gulp:js-lib');
 }
