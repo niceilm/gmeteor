@@ -232,7 +232,7 @@ function processMeteorBuild(phase, cb) {
   var server = getFullUrl(phase);
 
   var params = {
-    outputPath: getOutputPath(phase)
+    outputPath: (nconf.get('directory') ? "--directory " : "") + getOutputPath(phase)
   };
 
   if(server) {
@@ -242,7 +242,7 @@ function processMeteorBuild(phase, cb) {
     params.settings = "--mobile-settings " + settingsPath;
   }
 
-  _.forEach(["directory", "architecture"], function(value) {
+  _.forEach(["architecture"], function(value) {
     if(nconf.get(value)) {
       params[value] = "--" + value + " " + nconf.get(value);
     }
@@ -711,7 +711,7 @@ function getGulpExec(isWatch, isProduction, task) {
 }
 
 function getOutputPath(phase) {
-  return getAbsolutePath(gmeteorJson.phase[phase].outputPath || gmeteorJson.info.path.deploy + "/" + phase + "/.build");
+  return getAbsolutePath(nconf.get('directory') || gmeteorJson.phase[phase].outputPath || gmeteorJson.info.path.deploy + "/" + phase + "/.build");
 }
 
 function getFullUrl(phase) {
