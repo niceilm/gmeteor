@@ -46,7 +46,7 @@ Logger.setDebug(isDebugMode);
 
 try {
   gmeteorJson = require("../lib/load-gmeteor-json");
-  supportPhase = _.filter(fs.readdirSync(gmeteorJson.info.path.deploy), _.negate(_.partial(_.startsWith, _,".")));
+  supportPhase = _.filter(fs.readdirSync(gmeteorJson.info.path.deploy), _.negate(_.partial(_.startsWith, _, ".")));
   rxSupportPhase = new RegExp("^(" + supportPhase.join("|") + ")$");
   developmentPhase = gmeteorJson.info.development;
   productionPhase = gmeteorJson.info.production;
@@ -230,14 +230,30 @@ if(_.isUndefined(firstCommand) && !isHelpMode && !nconf.get("V") && !nconf.get("
 function processMeteorBuild(phase, cb) {
   var settingsPath = getSettingsPath(phase);
   var server = getFullUrl(phase);
+  var outputPath = getOutputPath(phase);
 
   var params = {
-    outputPath: (nconf.get('directory') ? "--directory " : "") + getOutputPath(phase)
+    outputPath: (nconf.get('directory') ? "--directory " : "") + outputPath
   };
 
   if(server) {
     params.server = "--server " + server;
   }
+
+  var env = gmeteorJson.phase[phase].env || {};
+  env.METEOR_SETTINGS = JSON.stringify(require(settingsPath));
+
+  function convertEnvList(env) {
+    var envList = "";
+    _.forEach(env, function(value, key) {
+      envList += key + "=" + value + "\n";
+    });
+    return envList;
+  }
+
+  var envList = convertEnvList(env);
+  fs.writeFileSync(outputPath + "/env.list", envList);
+
   if(fs.existsSync(settingsPath)) {
     params.settings = "--mobile-settings " + settingsPath;
   }
