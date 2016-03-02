@@ -246,6 +246,9 @@ function processMeteorBuild(phase, cb) {
   function convertEnvList(env) {
     var envList = "";
     _.forEach(env, function(value, key) {
+      if(_.isString(value)) {
+        value = value.replace(/"/g, "\\\"");
+      }
       envList += key + "=" + value + "\n";
     });
     return envList;
