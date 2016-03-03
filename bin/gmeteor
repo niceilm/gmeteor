@@ -173,6 +173,12 @@ program
   .action(isHelpMode ? _.noop : actionZipalign);
 
 program
+  .command('docker <directory>')
+  .description('docker prepare')
+  .allowUnknownOption(true)
+  .action(isHelpMode ? _.noop : actionDocker);
+
+program
   .command('gulp [task]')
   .description('gulp wrapper')
   .option('--production', "production mode")
@@ -239,23 +245,6 @@ function processMeteorBuild(phase, cb) {
   if(server) {
     params.server = "--server " + server;
   }
-
-  var env = gmeteorJson.phase[phase].env || {};
-  env.METEOR_SETTINGS = JSON.stringify(require(settingsPath));
-
-  function convertEnvList(env) {
-    var envList = "";
-    _.forEach(env, function(value, key) {
-      if(_.isString(value)) {
-        value = value.replace(/"/g, "\\\"");
-      }
-      envList += key + "=" + value + "\n";
-    });
-    return envList;
-  }
-
-  var envList = convertEnvList(env);
-  fs.writeFileSync(outputPath + "/env.list", envList);
 
   if(fs.existsSync(settingsPath)) {
     params.settings = "--mobile-settings " + settingsPath;
@@ -447,6 +436,34 @@ function actionRun(command, target, options) {
   processMeteorRun(command, target, options.phase, function() {
     Logger.timeEnd(timeLabel);
   });
+}
+
+function actionDocker(directory) {
+  var outputPath = getAbsolutePath(directory || "./");
+  var timeLabel = "docker " + outputPath;
+  Logger.time(timeLabel);
+  _.forEach(gmeteorJson.phase, function(value, phase) {
+    var settingsPath = getSettingsPath(phase);
+    var env = value.env || {};
+    env.METEOR_SETTINGS = JSON.stringify(require(settingsPath));
+    var envList = convertEnvList(env);
+    var targetPath = path.normalize(outputPath + "/" + phase);
+    shelljs.mkdir('-p', targetPath);
+    fs.writeFileSync(targetPath + "/env.list", envList);
+  });
+
+  Logger.timeEnd(timeLabel);
+
+  function convertEnvList(env) {
+    var envList = "";
+    _.forEach(env, function(value, key) {
+      if(_.isString(value)) {
+        value = value.replace(/"/g, "\\\"");
+      }
+      envList += key + "=" + value + "\n";
+    });
+    return envList;
+  }
 }
 
 function actionBuild(phase, options) {
