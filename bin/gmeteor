@@ -439,6 +439,10 @@ function actionRun(command, target, options) {
 }
 
 function actionDocker(directory) {
+  if(_.isUndefined(directory)) {
+    return;
+  }
+
   var outputPath = getAbsolutePath(directory || "./");
   var timeLabel = "docker " + outputPath;
   Logger.time(timeLabel);
